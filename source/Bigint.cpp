@@ -1,9 +1,11 @@
 #include "Bigint.h"
+#include "BigFraction.h"
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <endian.h>
 #include <iostream>
+#include <sys/types.h>
 #include <utility>
 
 BigInt::BigInt(const std::vector<uint8_t> &number, bool sign,
@@ -19,6 +21,12 @@ BigInt::BigInt(const BigInt &big_int) {
   this->base = big_int.base;
 }
 
+BigInt::BigInt(const BigInt &big_int, const uint8_t &base) {
+  this->number = big_int.number;
+  this->sign = big_int.sign;
+  this->base = base;
+}
+
 BigInt::BigInt(int64_t number) {
   this->sign = (number < 0);
   this->number.clear();
@@ -30,6 +38,46 @@ BigInt::BigInt(int64_t number) {
   }
 
   this->base = 10;
+}
+
+BigInt::BigInt(std::string number, const uint8_t &base) {
+  this->base = base;
+  if (number[0] == '-') {
+    this->sign = 1;
+    number.erase(0, 1);
+  } else {
+    this->sign = 0;
+  }
+  this->number.clear();
+  for (auto str_digit = number.rbegin(); str_digit < number.rend();
+       ++str_digit) {
+    uint8_t digit;
+    if (*str_digit >= '0' && *str_digit <= '9') {
+      digit = *str_digit - '0';
+    } else if (*str_digit >= 'A' && *str_digit <= 'Z') {
+      digit = *str_digit - 'A' + 10;
+    } else if (*str_digit >= 'a' && *str_digit <= 'z') {
+      digit = *str_digit - 'a' + 10;
+    } else if (*str_digit == '[') {
+      ++str_digit;
+    } else if (*str_digit == ']') {
+      int res_digit = 0;
+      ++str_digit;
+      int curr_p = 1;
+      while (*str_digit != '[') {
+        res_digit += curr_p * (*str_digit - '0');
+        ++str_digit;
+        curr_p *= 10;
+      }
+      digit = static_cast<uint8_t>(res_digit);
+    } else {
+      throw std::runtime_error("Wrong digit (unknown symbol)");
+    }
+    if (digit >= base) {
+      throw std::runtime_error("Wrong digit (digit >= base)");
+    }
+    this->number.push_back(digit);
+  }
 }
 
 BigInt operator+=(BigInt &first, BigInt second) {
@@ -53,6 +101,13 @@ BigInt operator*=(BigInt &first, BigInt second) {
   return res;
 }
 
+BigInt operator*=(BigInt &first, int16_t second) {
+  BigInt res = first * second;
+
+  first = res;
+  return res;
+}
+
 uint8_t BigInt::GetBase() const { return this->base; }
 int32_t BigInt::GetLength() const { return this->number.size(); }
 bool BigInt::GetSign() const { return this->sign; }
@@ -67,7 +122,7 @@ BigInt BigInt::Abs() const {
 }
 
 BigInt BigInt::Power(BigInt power_degree) const {
-  BigInt res(1);
+  BigInt res({1}, 0, this->base);
   BigInt power_base = *this;
 
   power_degree.DeleteZeros();
@@ -86,6 +141,18 @@ void BigInt::DeleteZeros() {
          this->number.size() != 1) {
     this->number.pop_back();
   }
+}
+
+uint8_t BigInt::CountLeadZeros() {
+  uint8_t counter = 0;
+  for (auto digit = this->number.rbegin(); digit < this->number.rend();
+       ++digit) {
+    if (*digit != 0) {
+      break;
+    }
+    ++counter;
+  }
+  return counter;
 }
 
 uint8_t *BigInt::operator[](int index) { return &this->number[index]; }
@@ -156,6 +223,10 @@ bool operator==(const BigInt &first, const BigInt &second) {
   return 1;
 }
 
+bool operator==(const BigInt &first, const int &second) {
+  return (first.ToDecimalInt() == second);
+}
+
 bool operator>=(const BigInt &first, const BigInt &second) {
   return first > second || first == second;
 }
@@ -174,8 +245,18 @@ std::ostream &operator<<(std::ostream &os, const BigInt &big_int) {
   }
   for (auto digit = big_int.number.rbegin(); digit < big_int.number.rend();
        ++digit) {
-    os << static_cast<int>(*digit);
+    if (*digit >= 0 && *digit <= 9) {
+      os << static_cast<int>(*digit);
+    } else if (*digit >= 10 && *digit <= 35) {
+      os << (char)('A' + *digit - 10);
+      // os << 'A' + *digit;
+    } else {
+      os << '[' << static_cast<int>(*digit) << ']';
+    }
+    // os << static_cast<int>(*digit);
+    // os << '[' << static_cast<int>(*digit) << ']';
   }
+  // os << "(" << static_cast<int>(big_int.GetBase()) << ")";
   return os;
 }
 
@@ -287,6 +368,23 @@ BigInt operator*(const BigInt &first_, const BigInt &second_) {
   return res;
 }
 
+BigInt operator*(const BigInt &first_, const int16_t &second_) {
+  BigInt first = first_;
+  int16_t second = second_;
+  BigInt res({0}, 0, first.GetBase());
+
+  bool sign = first.GetSign() ^ (second_ < 0);
+  first = first.Abs();
+  second = std::abs(second);
+
+  for (int i = 0; i < second; ++i) {
+    res += first;
+  }
+
+  res.sign = sign;
+  return res;
+}
+
 BigInt operator/(const BigInt &first_, int64_t denum) {
   if (denum == 0) {
     throw std::runtime_error("Division by zero");
@@ -304,6 +402,15 @@ BigInt operator/(const BigInt &first_, int64_t denum) {
   }
 
   return first;
+}
+
+BigInt operator%(const BigInt &first_, int64_t denum) {
+  BigInt div = first_ / denum;
+  div.DeleteZeros();
+
+  BigInt res = first_ - (div * denum);
+  res.DeleteZeros();
+  return res;
 }
 
 BigInt operator/(const BigInt &first_, const BigInt &second_) {
@@ -362,6 +469,18 @@ BigInt operator/(const BigInt &first_, const BigInt &second_) {
   return left;
 }
 
+BigInt operator%(const BigInt &first_, const BigInt &second_) {
+  BigInt div = first_ / second_;
+  div.DeleteZeros();
+
+  BigInt mult = div * second_;
+  mult.DeleteZeros();
+
+  BigInt res = first_ - mult;
+  res.DeleteZeros();
+  return res;
+}
+
 int64_t BigInt::ToDecimalInt() const {
   int64_t result = 0;
 
@@ -371,4 +490,48 @@ int64_t BigInt::ToDecimalInt() const {
   }
 
   return (this->sign ? -result : result);
+}
+
+std::string BigInt::ToString() {
+  std::string res;
+
+  for (auto digit = number.rbegin(); digit < number.rend(); ++digit) {
+    if (*digit >= 0 && *digit <= 9) {
+      res += *digit + '0';
+    } else if (*digit >= 10 && *digit <= 35) {
+      res += (char)('A' + *digit - 10);
+    } else {
+      res += '[';
+      res += std::to_string(static_cast<int>(*digit));
+      res += ']';
+    }
+  }
+
+  return res;
+}
+
+BigInt BigInt::Convert(const uint8_t &base) const {
+  BigInt result({0}, this->GetSign(), base);
+
+  BigInt curr_p({1}, 0, base);
+  for (int i = 0; i < this->number.size(); ++i, curr_p *= this->base) {
+    result += curr_p * this->number[i];
+  }
+
+  result.sign = this->GetSign();
+  return result;
+}
+
+BigInt gcd(BigInt a, BigInt b) {
+  a.DeleteZeros();
+  a = a.Abs();
+  b.DeleteZeros();
+  b = b.Abs();
+  if (a < 1) {
+    return b;
+  }
+
+  BigInt mod = b % a;
+  mod.DeleteZeros();
+  return gcd(mod, a);
 }

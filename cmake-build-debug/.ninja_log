@@ -1,0 +1,12 @@
+# ninja log v5
+0	54	1702999513112433557	Converter_autogen/timestamp	ada0f2ef52d9b529
+0	54	1702999513112433557	Converter_autogen/mocs_compilation.cpp	ada0f2ef52d9b529
+0	54	1702999513112433557	/home/artem627/Documents/olymp/phtl/pracs/Universal-Converter/cmake-build-debug/Converter_autogen/timestamp	ada0f2ef52d9b529
+0	54	1702999513112433557	/home/artem627/Documents/olymp/phtl/pracs/Universal-Converter/cmake-build-debug/Converter_autogen/mocs_compilation.cpp	ada0f2ef52d9b529
+55	81	1702999513152433116	CMakeFiles/Converter.dir/Converter_autogen/mocs_compilation.cpp.o	598255f730a2dd51
+55	911	1702999513982423972	CMakeFiles/Converter.dir/source/BigFraction.cpp.o	73044baf091c96c2
+56	990	1702999514059089795	CMakeFiles/Converter.dir/source/BigNumber.cpp.o	b058388113cd1a1
+55	1239	1702999514309087042	CMakeFiles/Converter.dir/source/Bigint.cpp.o	f5dd51710871999d
+55	3965	1702999517032390411	CMakeFiles/Converter.dir/source/main.cpp.o	61ce08159bfd2562
+56	4053	1702999517115722828	CMakeFiles/Converter.dir/source/App.cpp.o	edf9cff5fca7e6ff
+4053	4584	1702999517649050300	Converter	13d84c90703a5eac
